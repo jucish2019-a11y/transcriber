@@ -7,7 +7,7 @@ OUT="${1:-vendor}"
 TMP="$(mktemp -d)"
 mkdir -p "$OUT"
 ( cd "$TMP" && npm pack "@huggingface/transformers@${VERSION}" --silent && tar -xzf huggingface-transformers-*.tgz )
-cp "$TMP/package/dist/transformers.min.js" \
+cp "$TMP/package/dist/transformers.web.min.js" \
    "$TMP/package/dist/ort-wasm-simd-threaded.jsep.mjs" \
    "$TMP/package/dist/ort-wasm-simd-threaded.jsep.wasm" "$OUT/"
 rm -rf "$TMP"

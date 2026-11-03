@@ -122,39 +122,6 @@
   .seg p { margin: 0; outline-offset: 3px; }
   .seg.now p { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 
-  input[type="text"], textarea {
-    width: 100%; padding: .55rem .7rem; font: inherit; color: var(--ink);
-    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-  }
-  textarea { resize: vertical; margin-bottom: .6rem; }
-  .tools { margin-top: 1rem; }
-  .tools > summary { font-weight: 600; color: var(--ink); font-size: 1rem; }
-  .tools[open] > summary { margin-bottom: .75rem; }
-  .opts { display: grid; gap: .35rem; margin-bottom: .9rem; }
-  .check { display: flex; gap: .5rem; align-items: flex-start; font-size: .92rem; }
-  .check input { margin-top: .25rem; }
-  .grid2 { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; margin-bottom: .75rem; }
-  @media (max-width: 540px) { .grid2 { grid-template-columns: 1fr; } }
-  .seg { grid-template-columns: 7.2rem 1fr; }
-  .side { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; }
-  button.role {
-    font-size: .78rem; padding: .12rem .55rem; border-radius: 999px;
-    border: 1px dashed var(--line); background: none; color: var(--muted); cursor: pointer; text-align: left;
-  }
-  button.role[data-role="mod"] { border: 1px solid var(--accent); color: var(--accent); }
-  button.role[data-role="stk"] { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
-  #restore p { margin: 0 0 .6rem; }
-  #printArea { display: none; }
-  #printArea .pt { color: #666; font-size: .85em; margin-right: .4em; }
-  @media print {
-    body { background: #fff; color: #000; padding: 0; }
-    main { display: none !important; }
-    #printArea { display: block !important; max-width: none; font-size: 11pt; }
-    #printArea h1 { font-size: 18pt; }
-    #printArea p { margin: 0 0 .6em; }
-    #printArea .meta { color: #555; font-size: 9.5pt; margin: 0 0 .2em; }
-  }
-
   footer { margin-top: 2.5rem; color: var(--muted); font-size: .85rem; max-width: 64ch; }
   footer p { margin: 0 0 .6rem; }
 </style>
@@ -229,17 +196,7 @@
     <button class="primary" id="go" disabled>Transcribe</button>
     <button id="cancel" hidden>Cancel</button>
     <button id="check">Check my setup</button>
-    <button id="openSession">Open saved session</button>
-    <input type="file" id="sessionFile" accept=".json,application/json" hidden>
   </div>
-
-  <section class="panel" id="restore" hidden>
-    <p id="restoreText"></p>
-    <div class="actions">
-      <button class="small primary" id="restoreYes">Restore it</button>
-      <button class="small" id="restoreNo">Discard it</button>
-    </div>
-  </section>
 
   <section class="panel" id="run" hidden aria-live="polite">
     <p id="phase"></p>
@@ -257,45 +214,11 @@
   <section id="result" hidden>
     <audio id="player" controls></audio>
     <p id="summary"></p>
-    <p class="hint" id="cleanStats"></p>
-
-    <details class="panel tools">
-      <summary>Clean-up and glossary</summary>
-      <div class="opts">
-        <label class="check"><input type="checkbox" id="optFillers" checked> <span>Remove filler sounds (um, uh, er, hmm, euh)</span></label>
-        <label class="check"><input type="checkbox" id="optBack"> <span>Also remove &ldquo;mm-hmm&rdquo; and &ldquo;uh-huh&rdquo;</span></label>
-        <label class="check"><input type="checkbox" id="optRepeat"> <span>Remove immediate repeats (&ldquo;I I think&rdquo; becomes &ldquo;I think&rdquo;)</span></label>
-      </div>
-      <label class="field" for="custom">Other words or phrases to remove, separated by commas</label>
-      <textarea id="custom" rows="2" placeholder="you know, I mean, basically"></textarea>
-      <label class="field" for="glossary">Glossary: one correction per line, written as heard =&gt; correct</label>
-      <textarea id="glossary" rows="4" placeholder="duchen =&gt; Duchenne"></textarea>
-      <p class="hint">Filler lists follow the language you chose, so pick the language instead of Detect automatically when you can. Anything you type into the transcript is kept exactly as you wrote it.</p>
-    </details>
-
-    <details class="panel tools" open>
-      <summary>Speakers</summary>
-      <div class="grid2">
-        <div><label class="field" for="lblMod">Moderator label</label><input type="text" id="lblMod" value="Moderator"></div>
-        <div><label class="field" for="lblStk">Stakeholder label</label><input type="text" id="lblStk" value="Stakeholder"></div>
-      </div>
-      <div class="actions">
-        <button class="small" id="suggest">Suggest roles from questions</button>
-        <button class="small" id="swap">Swap roles</button>
-        <button class="small" id="clearRoles">Clear roles</button>
-      </div>
-      <p class="hint" id="roleNote">Click the role tag on a line to change it. With a tag selected, press M for moderator, S for stakeholder, 0 to clear; the arrow keys move between lines.</p>
-    </details>
-
-    <div class="toolbar" style="margin-top:1rem">
+    <div class="toolbar">
       <button class="small" id="copy">Copy text</button>
-      <button class="small primary" id="dlDocx">Word (.docx)</button>
-      <button class="small" id="dlCsv">Excel (.csv)</button>
-      <button class="small" id="dlPdf">PDF</button>
-      <button class="small" id="dlTxt">.txt</button>
-      <button class="small" id="dlSrt">.srt</button>
-      <button class="small" id="dlVtt">.vtt</button>
-      <button class="small" id="saveSession">Save session</button>
+      <button class="small" id="dlTxt">Download .txt</button>
+      <button class="small" id="dlSrt">Download .srt</button>
+      <button class="small" id="dlVtt">Download .vtt</button>
       <label><input type="checkbox" id="withTime"> Timestamps in .txt and copy</label>
     </div>
     <div id="transcript" aria-label="Transcript. Text can be edited."></div>
@@ -314,24 +237,24 @@
 <script src="coi-serviceworker.js"></script>
 -->
 
-<div id="printArea" hidden></div>
-
 <script type="module">
-import { stamp, splitList, parseGlossary, effectiveText, suggestRoles, toTurns, buildPlain, buildSrt, buildVtt, buildCsv } from "./textutils.js?v=4";
-import { buildDocx } from "./docx.js?v=4";
-
 const $ = (id) => document.getElementById(id);
 const SAMPLE_RATE = 16000;
-const APP_VERSION = "4"; // bump when files change so browsers fetch fresh copies
 const state = { file: null, worker: null, segments: [], objectUrl: null, running: false, wake: null,
-                t0: 0, liveBuf: "", dl: new Map(), info: null, audioSeconds: 0,
-                language: "auto", fileName: "" };
+                t0: 0, liveBuf: "", dl: new Map(), info: null, audioSeconds: 0 };
 
 /* ---------- small helpers ---------- */
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
+const pad = (n, w = 2) => String(n).padStart(w, "0");
+function stamp(t, ms = null) {
+  t = Math.max(0, t || 0);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60);
+  const base = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  return ms ? `${base}${ms}${pad(Math.floor((t % 1) * 1000), 3)}` : base;
+}
 function duration(sec) {
   sec = Math.round(sec);
   if (sec < 60) return `${sec} s`;
@@ -368,8 +291,6 @@ function pickFile(f) {
   const small = document.createElement("small"); small.textContent = ` (${mb(f.size)} MB)`;
   $("fileInfo").append(name, small);
   $("go").disabled = state.running;
-  // A saved session has no audio inside it; choosing the same file brings playback back.
-  if (!state.running && !$("result").hidden && state.segments.length && f.name === state.fileName) attachAudio(f);
 }
 $("file").addEventListener("change", (e) => pickFile(e.target.files[0]));
 const drop = $("drop");
@@ -436,7 +357,7 @@ function endRun() {
 function getWorker() {
   if (state.worker) return state.worker;
   let w;
-  try { w = new Worker(`./worker.js?v=${APP_VERSION}`, { type: "module" }); }
+  try { w = new Worker("./worker.js", { type: "module" }); }
   catch { throw new Error("This browser cannot run module workers. Update it, or use a recent Chrome, Edge, Firefox or Safari."); }
   w.onmessage = ({ data }) => onWorker(data);
   w.onerror = (e) => fail({ message: e.message || "The background worker crashed.", file: "" });
@@ -505,8 +426,6 @@ async function start() {
     setBar(null);
     const audio = await decodeAudio(state.file);
     state.audioSeconds = audio.length / SAMPLE_RATE;
-    state.language = $("lang").value;
-    state.fileName = state.file.name;
     if (state.audioSeconds < 0.5) throw new Error("The file has no audible content.");
     const w = getWorker();
     w.postMessage({
@@ -526,271 +445,59 @@ $("cancel").addEventListener("click", () => {
 });
 
 /* ---------- results ---------- */
-// Each segment: { start, end, text (as transcribed), edit (your own wording or null), speaker ("mod" | "stk" | null) }
-const labels = () => ({ mod: $("lblMod").value.trim() || "Moderator", stk: $("lblStk").value.trim() || "Stakeholder" });
-const cleanOpts = () => ({
-  fillers: $("optFillers").checked, backchannel: $("optBack").checked, repeats: $("optRepeat").checked,
-  custom: splitList($("custom").value), lang: state.language,
-});
-const glossary = () => parseGlossary($("glossary").value);
-
-function loadSettings() {
-  $("optFillers").checked = store.get("wp_optFillers") !== "0";
-  $("optBack").checked = store.get("wp_optBack") === "1";
-  $("optRepeat").checked = store.get("wp_optRepeat") === "1";
-  $("custom").value = store.get("wp_custom") || "";
-  $("glossary").value = store.get("wp_glossary") || "";
-  $("lblMod").value = store.get("wp_lblMod") || "Moderator";
-  $("lblStk").value = store.get("wp_lblStk") || "Stakeholder";
-}
-loadSettings();
-for (const id of ["optFillers", "optBack", "optRepeat"]) {
-  $(id).addEventListener("change", () => { store.set("wp_" + id, $(id).checked ? "1" : "0"); render(); });
-}
-let typingTimer = null;
-for (const id of ["custom", "glossary"]) {
-  $(id).addEventListener("input", () => {
-    store.set("wp_" + id, $(id).value);
-    clearTimeout(typingTimer); typingTimer = setTimeout(render, 400);
-  });
-}
-for (const id of ["lblMod", "lblStk"]) {
-  $(id).addEventListener("input", () => { store.set("wp_" + id, $(id).value); repaintRoles(); queueSave(); });
-}
-
-function attachAudio(file) {
-  if (state.objectUrl) { URL.revokeObjectURL(state.objectUrl); state.objectUrl = null; }
-  if (file) { state.objectUrl = URL.createObjectURL(file); $("player").src = state.objectUrl; }
-  $("player").hidden = !file;
-}
-
 function finish(chunks) {
   endRun();
-  state.segments = chunks.map((c) => ({ start: c.start, end: c.end, text: c.text, edit: null, speaker: null }));
+  state.segments = chunks;
   const took = (performance.now() - state.t0) / 1000;
   setPhase("Done", `Finished in ${duration(took)}`);
   setBar(100);
   document.title = "Done: Private audio transcriber";
-  attachAudio(state.file);
-  showResult(`, transcribed on the ${state.info?.device === "gpu" ? "GPU" : "CPU"}`);
-}
 
-function showResult(note) {
-  $("summary").textContent = `${state.segments.length} segments, ${stamp(state.audioSeconds)} of audio${note}. Click a time to jump there. Click any text to correct it.`;
-  render();
-}
+  if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+  state.objectUrl = URL.createObjectURL(state.file);
+  $("player").src = state.objectUrl;
 
-function render() {
-  const o = cleanOpts(), g = glossary(), L = labels();
+  $("summary").textContent = `${chunks.length} segments, ${stamp(state.audioSeconds)} of audio, transcribed on the ${state.info?.device === "gpu" ? "GPU" : "CPU"}. Click a time to jump there. Click any text to correct it.`;
   const box = $("transcript");
   box.replaceChildren();
-  let removed = 0, hidden = 0;
-  state.segments.forEach((seg, i) => {
-    const r = effectiveText(seg, o, g);
-    removed += r.removed;
-    if (!r.text) { hidden++; return; }
-    box.append(makeRow(seg, i, r.text, L));
+  chunks.forEach((seg, i) => {
+    const row = document.createElement("div"); row.className = "seg"; row.dataset.i = i;
+    const t = document.createElement("button"); t.className = "t"; t.textContent = stamp(seg.start);
+    t.addEventListener("click", () => { $("player").currentTime = seg.start; $("player").play(); });
+    const p = document.createElement("p");
+    try { p.contentEditable = "plaintext-only"; } catch { p.contentEditable = "true"; }
+    p.dir = "auto"; p.textContent = seg.text;
+    p.addEventListener("input", () => { state.segments[i].text = p.textContent.trim(); });
+    row.append(t, p); box.append(row);
   });
-  const active = o.fillers || o.backchannel || o.repeats || o.custom.length;
-  $("cleanStats").textContent = !active ? "Clean-up is off, so the transcript shows exactly what was heard."
-    : removed ? `${removed} filler${removed === 1 ? "" : "s"} removed${hidden ? `, and ${hidden} line${hidden === 1 ? "" : "s"} containing only fillers hidden` : ""}. Adjust this under Clean-up and glossary.`
-    : "No fillers found.";
   $("result").hidden = false;
-  queueSave();
 }
-
-function makeRow(seg, i, text, L) {
-  const row = document.createElement("div"); row.className = "seg"; row.dataset.i = i;
-  const side = document.createElement("div"); side.className = "side";
-  const t = document.createElement("button"); t.className = "t"; t.textContent = stamp(seg.start); t.title = "Play from here";
-  t.addEventListener("click", () => { if (!$("player").hidden) { $("player").currentTime = seg.start; $("player").play(); } });
-  const role = document.createElement("button"); role.className = "role";
-  paintRole(role, seg, L);
-  role.addEventListener("click", () => setRole(i, seg.speaker === "mod" ? "stk" : seg.speaker === "stk" ? null : "mod", false));
-  role.addEventListener("keydown", (e) => roleKey(e, i));
-  side.append(t, role);
-  const p = document.createElement("p");
-  try { p.contentEditable = "plaintext-only"; } catch { p.contentEditable = "true"; }
-  p.dir = "auto"; p.textContent = text;
-  p.addEventListener("input", () => { seg.edit = p.textContent.trim(); queueSave(); });
-  row.append(side, p);
-  return row;
-}
-
-function paintRole(btn, seg, L) {
-  btn.textContent = seg.speaker ? L[seg.speaker] : "Set role";
-  btn.dataset.role = seg.speaker || "none";
-  btn.setAttribute("aria-label", seg.speaker
-    ? `Speaker: ${L[seg.speaker]}. Press M, S or 0 to change.`
-    : "No speaker set. Press M for moderator or S for stakeholder.");
-}
-function roleButton(i) { return $("transcript").querySelector(`.seg[data-i="${i}"] .role`); }
-function repaintRoles() {
-  const L = labels();
-  for (const row of $("transcript").children) paintRole(row.querySelector(".role"), state.segments[+row.dataset.i], L);
-}
-function setRole(i, role, advance) {
-  state.segments[i].speaker = role;
-  const btn = roleButton(i);
-  if (btn) {
-    paintRole(btn, state.segments[i], labels());
-    if (advance) btn.closest(".seg").nextElementSibling?.querySelector(".role")?.focus();
-  }
-  queueSave();
-}
-function roleKey(e, i) {
-  const k = e.key.toLowerCase();
-  const row = e.currentTarget.closest(".seg");
-  if (k === "m") { e.preventDefault(); setRole(i, "mod", true); }
-  else if (k === "s") { e.preventDefault(); setRole(i, "stk", true); }
-  else if (k === "0" || k === "backspace" || k === "delete") { e.preventDefault(); setRole(i, null, true); }
-  else if (k === "arrowdown") { e.preventDefault(); row.nextElementSibling?.querySelector(".role")?.focus(); }
-  else if (k === "arrowup") { e.preventDefault(); row.previousElementSibling?.querySelector(".role")?.focus(); }
-}
-
-$("suggest").addEventListener("click", () => {
-  const o = cleanOpts(), g = glossary();
-  const roles = suggestRoles(state.segments.map((s) => ({ text: effectiveText(s, o, g).text })));
-  if (!roles) {
-    $("roleNote").textContent = "No lines end with a question mark, so there is nothing to suggest. Label lines with the M and S keys instead.";
-    return;
-  }
-  if (state.segments.some((s) => s.speaker) && !confirm("Replace the roles you have already set?")) return;
-  state.segments.forEach((s, i) => { s.speaker = roles[i]; });
-  $("roleNote").textContent = "Roles suggested from questions. This is a rough first pass: lines ending in a question became the moderator and the answers after them the stakeholder. Check it and fix lines with M and S.";
-  render();
-});
-$("swap").addEventListener("click", () => {
-  for (const s of state.segments) s.speaker = s.speaker === "mod" ? "stk" : s.speaker === "stk" ? "mod" : null;
-  render();
-});
-$("clearRoles").addEventListener("click", () => { for (const s of state.segments) s.speaker = null; render(); });
-
 $("player").addEventListener("timeupdate", () => {
   const t = $("player").currentTime;
-  for (const row of $("transcript").children) {
-    const s = state.segments[+row.dataset.i];
-    row.classList.toggle("now", !!s && t >= s.start && t < s.end);
+  const rows = $("transcript").children;
+  for (let i = 0; i < rows.length; i++) {
+    const s = state.segments[i];
+    rows[i].classList.toggle("now", !!s && t >= s.start && t < s.end);
   }
 });
 
-/* ---------- exports ---------- */
-const baseName = () => (state.fileName || "transcript").replace(/\.[^.]+$/, "");
-function items() {
-  const o = cleanOpts(), g = glossary();
-  return state.segments.map((s) => ({ start: s.start, end: s.end, speaker: s.speaker, text: effectiveText(s, o, g).text }));
-}
-const turns = () => toTurns(items(), labels());
-const plain = () => buildPlain(turns(), { timestamps: $("withTime").checked });
-
-function download(name, data, type = "text/plain") {
+function download(name, text, type = "text/plain") {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([data], { type: `${type};charset=utf-8` }));
+  a.href = URL.createObjectURL(new Blob([text], { type: type + ";charset=utf-8" }));
   a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
-function metaLines() {
-  const lang = $("lang").querySelector(`option[value="${state.language}"]`)?.textContent || state.language;
-  return [
-    `Source file: ${state.fileName || "unknown"}`,
-    `Audio length: ${stamp(state.audioSeconds)}`,
-    `Language setting: ${lang}`,
-    `Exported: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
-  ];
-}
-
+const base = () => (state.file ? state.file.name.replace(/\.[^.]+$/, "") : "transcript");
+const plain = () => state.segments.map((s) => ($("withTime").checked ? `[${stamp(s.start)}] ` : "") + s.text).join("\n");
+const srt = () => state.segments.map((s, i) => `${i + 1}\n${stamp(s.start, ",")} --> ${stamp(s.end, ",")}\n${s.text}\n`).join("\n");
+const vtt = () => "WEBVTT\n\n" + state.segments.map((s) => `${stamp(s.start, ".")} --> ${stamp(s.end, ".")}\n${s.text}\n`).join("\n");
 $("copy").addEventListener("click", async () => {
-  $("run").hidden = false;
   try { await navigator.clipboard.writeText(plain()); setPhase("Done", "Copied to the clipboard."); }
-  catch { setPhase("Done", "Copy was blocked by the browser. Use .txt instead."); }
+  catch { setPhase("Done", "Copy was blocked by the browser. Use Download .txt instead."); }
 });
-$("dlTxt").addEventListener("click", () => download(baseName() + ".txt", plain()));
-$("dlSrt").addEventListener("click", () => download(baseName() + ".srt", buildSrt(items(), labels()), "application/x-subrip"));
-$("dlVtt").addEventListener("click", () => download(baseName() + ".vtt", buildVtt(items(), labels()), "text/vtt"));
-$("dlCsv").addEventListener("click", () => download(baseName() + ".csv", buildCsv(turns()), "text/csv"));
-$("dlDocx").addEventListener("click", () => download(
-  baseName() + ".docx",
-  buildDocx({ title: baseName(), meta: metaLines(), turns: turns() }),
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
-
-$("dlPdf").addEventListener("click", () => {
-  const area = $("printArea");
-  area.replaceChildren();
-  const h = document.createElement("h1"); h.textContent = baseName(); area.append(h);
-  for (const line of metaLines()) { const m = document.createElement("p"); m.className = "meta"; m.textContent = line; area.append(m); }
-  area.append(document.createElement("br"));
-  for (const t of turns()) {
-    const p = document.createElement("p"); p.dir = "auto";
-    const time = document.createElement("span"); time.className = "pt"; time.textContent = `[${stamp(t.start)}]`;
-    p.append(time);
-    if (t.label) { const b = document.createElement("strong"); b.textContent = t.label + ": "; p.append(b); }
-    p.append(document.createTextNode(t.text));
-    area.append(p);
-  }
-  area.hidden = false;
-  window.print(); // choose "Save as PDF" as the destination
-});
-window.addEventListener("afterprint", () => { $("printArea").hidden = true; });
-
-/* ---------- saved sessions ---------- */
-function sessionData() {
-  return {
-    app: "private-audio-transcriber", version: 1, savedAt: new Date().toISOString(),
-    fileName: state.fileName, audioSeconds: state.audioSeconds, language: state.language, labels: labels(),
-    segments: state.segments.map(({ start, end, text, edit, speaker }) => ({ start, end, text, edit, speaker })),
-  };
-}
-function loadSession(d) {
-  if (!d || d.app !== "private-audio-transcriber" || !Array.isArray(d.segments)) throw new Error("This is not a session file saved by this tool.");
-  const segs = d.segments.map((s) => {
-    if (!s || typeof s.text !== "string" || !Number.isFinite(s.start)) throw new Error("The session file is damaged.");
-    return {
-      start: s.start, end: Number.isFinite(s.end) ? s.end : s.start, text: s.text,
-      edit: typeof s.edit === "string" ? s.edit : null,
-      speaker: s.speaker === "mod" || s.speaker === "stk" ? s.speaker : null,
-    };
-  });
-  state.segments = segs;
-  state.fileName = String(d.fileName || "");
-  state.audioSeconds = Number(d.audioSeconds) || 0;
-  state.language = String(d.language || "auto");
-  if (d.labels) { $("lblMod").value = d.labels.mod || "Moderator"; $("lblStk").value = d.labels.stk || "Stakeholder"; }
-  $("run").hidden = true; $("diag").hidden = true; $("restore").hidden = true;
-  attachAudio(null);
-  showResult(state.fileName ? `. To play the audio, choose ${state.fileName} again above` : "");
-}
-$("saveSession").addEventListener("click", () => download(baseName() + ".session.json", JSON.stringify(sessionData()), "application/json"));
-$("openSession").addEventListener("click", () => $("sessionFile").click());
-$("sessionFile").addEventListener("change", async (e) => {
-  const f = e.target.files[0]; e.target.value = "";
-  if (!f) return;
-  try { loadSession(JSON.parse(await f.text())); }
-  catch (err) {
-    $("run").hidden = false; setBar(0);
-    $("phase").textContent = "Could not open that file"; $("phase").classList.add("error");
-    $("detail").textContent = err.message || "It is not a valid session file.";
-  }
-});
-
-// Autosave lives in sessionStorage: it survives an accidental reload but is wiped when the tab is closed,
-// so confidential text is never left behind on the computer.
-let saveTimer = null;
-function queueSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try { if (state.segments.length) sessionStorage.setItem("wp_autosave", JSON.stringify(sessionData())); } catch { /* too big or blocked */ }
-  }, 800);
-}
-try {
-  const raw = sessionStorage.getItem("wp_autosave");
-  const d = raw && JSON.parse(raw);
-  if (d && Array.isArray(d.segments) && d.segments.length) {
-    $("restoreText").textContent = `An unsaved transcript${d.fileName ? ` of ${d.fileName}` : ""} (${d.segments.length} segments) was found in this tab.`;
-    $("restore").hidden = false;
-    $("restoreYes").addEventListener("click", () => { try { loadSession(d); } catch (err) { $("restoreText").textContent = err.message; } });
-    $("restoreNo").addEventListener("click", () => { try { sessionStorage.removeItem("wp_autosave"); } catch { /* ignore */ } $("restore").hidden = true; });
-  }
-} catch { /* nothing to restore */ }
+$("dlTxt").addEventListener("click", () => download(base() + ".txt", plain()));
+$("dlSrt").addEventListener("click", () => download(base() + ".srt", srt(), "application/x-subrip"));
+$("dlVtt").addEventListener("click", () => download(base() + ".vtt", vtt(), "text/vtt"));
 
 /* ---------- setup check ---------- */
 async function probe(url) {
@@ -820,8 +527,8 @@ async function runChecks() {
   const file = "onnx/encoder_model_quantized.onnx";
 
   const [libLocal, libCdn, modLocal, hfCfg, hfFile] = await Promise.all([
-    probe(here("./vendor/transformers.min.js")),
-    probe(`https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF}/dist/transformers.min.js`),
+    probe(here("./vendor/transformers.web.min.js")),
+    probe(`https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF}/dist/transformers.web.min.js`),
     probe(here(`./models/Xenova/whisper-${size}/${file}`)),
     probe(hf + "config.json"),
     probe(hf + file),

@@ -203,20 +203,90 @@ export function suggestRoles(items) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Sentence reflow                                                    */
+/* ------------------------------------------------------------------ */
+
+// Tokens that end in a full stop without ending a sentence.
+const ABBREVIATIONS = new Set([
+  "dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc", "e.g", "i.e", "approx", "no", "fig",
+  "inc", "ltd", "co", "dept", "ref", "vol", "al", "mt", "ave", "mm", "cm", "kg", "mg", "ml", "u.s", "u.k",
+]);
+const TERMINAL = /[.?!\u061F\u2026]["\u201D\u2019')\]]*$/u;
+
+function endsSentence(word, next) {
+  if (!TERMINAL.test(word)) return false;
+  const core = word.replace(/["\u201D\u2019')\]]+$/u, "");
+  if (/[?!\u061F]$/u.test(core)) return true;                        // ? and ! always end a sentence
+  const rawBare = core.replace(/[.\u2026]+$/u, "");
+  const bare = rawBare.toLowerCase();
+  if (/^\p{Lu}$/u.test(rawBare)) return false;                       // an initial: "J."
+  if (ABBREVIATIONS.has(bare) || /^(\p{L}\.)+\p{L}$/u.test(bare)) return false; // "Dr.", "e.g.", "U.S."
+  // a full stop followed by a lowercase word is not a sentence end ("approx. five", "so... then")
+  if (next && /^\p{Ll}/u.test(next.replace(/^["\u201C\u2018('\[]+/u, ""))) return false;
+  return true;
+}
+
+/**
+ * Re-cut transcription segments into whole sentences.
+ * Whisper cuts its output at timestamps, which often falls mid-sentence. This joins the pieces and
+ * splits again at sentence ends, estimating each sentence's time from its position inside its segment.
+ * chunks: [{ start, end, text }] -> [{ start, end, text }]
+ */
+export function reflowSentences(chunks, { maxWords = 70 } = {}) {
+  const words = [];
+  chunks.forEach((c, ci) => {
+    const text = String(c.text || "").trim();
+    if (!text) return;
+    const start = Number(c.start) || 0;
+    const end = Number.isFinite(c.end) && c.end > start ? c.end : start + 2;
+    const dur = end - start;
+    const parts = text.split(/\s+/);
+    const total = text.length || 1;
+    let pos = 0;
+    for (const w of parts) {
+      words.push({ w, ci, t0: start + (pos / total) * dur, t1: start + ((pos + w.length) / total) * dur });
+      pos += w.length + 1;
+    }
+  });
+
+  const out = [];
+  let cur = [];
+  const flush = () => {
+    if (!cur.length) return;
+    out.push({ start: cur[0].t0, end: Math.max(cur[0].t0, cur[cur.length - 1].t1), text: cur.map((x) => x.w).join(" ") });
+    cur = [];
+  };
+  for (let i = 0; i < words.length; i++) {
+    const wd = words[i];
+    // Output with no punctuation at all: fall back to the transcription's own cut points.
+    if (cur.length >= maxWords && cur[cur.length - 1].ci !== wd.ci) flush();
+    cur.push(wd);
+    if (endsSentence(wd.w, words[i + 1]?.w)) flush();
+  }
+  flush();
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Turns and export formats                                           */
 /* ------------------------------------------------------------------ */
 
 /**
- * Merge consecutive lines from the same speaker into one turn.
+ * Merge consecutive lines into turns.
+ * Lines from the same speaker become one turn. Lines with no speaker are grouped into paragraphs
+ * (a new paragraph starts after a pause of 1.5 s or once it gets long), so the text still flows.
  * items: [{ start, end, speaker, text }], labels: { mod, stk }
  */
-export function toTurns(items, labels) {
+export function toTurns(items, labels, { pauseSeconds = 1.5, maxChars = 600 } = {}) {
   const turns = [];
   for (const it of items) {
     const text = (it.text || "").trim();
     if (!text) continue;
     const prev = turns[turns.length - 1];
-    if (prev && it.speaker && prev.speaker === it.speaker) {
+    const sameSpeaker = prev && it.speaker && prev.speaker === it.speaker;
+    const sameParagraph = prev && !it.speaker && !prev.speaker
+      && it.start - prev.end < pauseSeconds && prev.text.length < maxChars;
+    if (sameSpeaker || sameParagraph) {
       prev.text += " " + text;
       prev.end = it.end;
     } else {
@@ -229,10 +299,10 @@ export function toTurns(items, labels) {
   return turns;
 }
 
-export function buildPlain(turns, { timestamps = false } = {}) {
-  return turns
-    .map((t) => `${timestamps ? `[${stamp(t.start)}] ` : ""}${t.label ? `${t.label}: ` : ""}${t.text}`)
-    .join(turns.some((t) => t.label) ? "\n\n" : "\n");
+export function buildPlain(turns, { timestamps = false, header = [] } = {}) {
+  const lines = turns.map((t) => `${timestamps ? `[${stamp(t.start)}] ` : ""}${t.label ? `${t.label}: ` : ""}${t.text}`);
+  const head = header.length ? header.join("\n") + "\n\n" : "";
+  return head + lines.join("\n\n");
 }
 
 export function buildSrt(items, labels) {

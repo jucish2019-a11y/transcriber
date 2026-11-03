@@ -8,8 +8,6 @@
 // Hugging Face fallbacks still work.
 
 const TF_VERSION = "3.5.1";
-// Passed by index.html as worker.js?v=N so updated files are never served stale.
-const APP_V = new URL(self.location.href).searchParams.get("v") || "0";
 const CDN = `https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF_VERSION}/dist/`;
 
 // CPU models come from Xenova (quantized 8-bit, runs on any machine).
@@ -34,11 +32,11 @@ const post = (msg) => self.postMessage(msg);
 async function loadLibrary() {
   if (T) return T;
   try {
-    T = await import(`./vendor/transformers.min.js?v=${APP_V}`);
+    T = await import("./vendor/transformers.web.min.js");
     libSource = "this site";
     wasmEnv().wasmPaths = new URL("./vendor/", self.location.href).href;
   } catch (localErr) {
-    T = await import(/* @vite-ignore */ CDN + "transformers.min.js");
+    T = await import(/* @vite-ignore */ CDN + "transformers.web.min.js");
     libSource = "cdn.jsdelivr.net";
     wasmEnv().wasmPaths = CDN;
   }
@@ -116,48 +114,6 @@ async function getPipeline(size, requested) {
   return current;
 }
 
-// Live-preview streamer. The preview is cosmetic, so nothing in here may ever
-// stop a transcription: every step is wrapped and failures are ignored.
-// (The library's own WhisperTextStreamer throws on empty token lists in 3.5.1.)
-function makeStreamer(tokenizer, { onText, onWindowDone }) {
-  const timestampBegin = tokenizer.timestamp_begin ?? Infinity;
-  class LiveStreamer extends T.BaseStreamer {
-    constructor() {
-      super();
-      this.cache = [];
-      this.printed = 0;
-      this.skipPrompt = true;
-    }
-    put(value) {
-      try {
-        if (this.skipPrompt) { this.skipPrompt = false; return; }
-        const kept = Array.from(value[0] || []).filter((t) => Number(t) < timestampBegin);
-        if (!kept.length) return;
-        this.cache = this.cache.concat(kept);
-        const text = tokenizer.decode(this.cache, { skip_special_tokens: true });
-        const upTo = text.lastIndexOf(" ") + 1; // only show finished words
-        if (upTo > this.printed) {
-          onText(text.slice(this.printed, upTo));
-          this.printed = upTo;
-        }
-      } catch { /* preview only */ }
-    }
-    end() {
-      try {
-        if (this.cache.length) {
-          const text = tokenizer.decode(this.cache, { skip_special_tokens: true });
-          if (text.length > this.printed) onText(text.slice(this.printed));
-        }
-      } catch { /* preview only */ }
-      this.cache = [];
-      this.printed = 0;
-      this.skipPrompt = true;
-      onWindowDone();
-    }
-  }
-  return new LiveStreamer();
-}
-
 async function run({ audio, size, device, language, task }) {
   const { asr, device: usedDevice } = await getPipeline(size, device);
 
@@ -174,10 +130,15 @@ async function run({ audio, size, device, language, task }) {
     duration,
   });
 
+  const timePrecision =
+    asr.processor.feature_extractor.config.chunk_length / asr.model.config.max_source_positions;
+
   let done = 0;
-  const streamer = makeStreamer(asr.tokenizer, {
-    onText: (text) => post({ type: "live", text }),
-    onWindowDone: () => {
+  const streamer = new T.WhisperTextStreamer(asr.tokenizer, {
+    skip_prompt: true,
+    time_precision: timePrecision,
+    callback_function: (text) => post({ type: "live", text }),
+    on_finalize: () => {
       done += 1;
       post({ type: "progress", done: Math.min(done, totalWindows), total: totalWindows });
     },

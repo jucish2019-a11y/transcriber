@@ -1,7 +1,7 @@
 // Minimal .docx writer with no dependencies: a .docx is a ZIP of XML files.
 // Files are stored uncompressed, which is valid and plenty for text transcripts.
 
-import { stamp, isRTL } from "./textutils.js?v=4";
+import { stamp, isRTL } from "./textutils.js?v=5";
 
 /* ---------- ZIP (store method) ---------- */
 
@@ -96,9 +96,10 @@ function run(text, { bold = false, color = null, size = null, rtl = false } = {}
   return `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ""}<w:t xml:space="preserve">${xmlEsc(text)}</w:t></w:r>`;
 }
 
-function para(runs, { style = null, rtl = false, after = null } = {}) {
+function para(runs, { style = null, rtl = false, after = null, rule = false } = {}) {
   const pPr = [
     style ? `<w:pStyle w:val="${style}"/>` : "",
+    rule ? '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="808080"/></w:pBdr>' : "",
     rtl ? "<w:bidi/>" : "",
     after !== null ? `<w:spacing w:after="${after}"/>` : "",
   ].join("");
@@ -140,24 +141,26 @@ const STYLES = HEAD + `<w:styles ${NS}>` +
   "</w:styles>";
 
 /**
- * Build a Word document.
- * opts: { title, meta: string[], turns: [{ start, label, text }] }
+ * Build a Word document laid out like an interview transcript:
+ * optional header lines, a rule, then one paragraph per turn ("Moderator: ...").
+ * opts: { header: string[], turns: [{ start, label, text }], timestamps: boolean }
  * Returns a Uint8Array (a .docx file).
  */
-export function buildDocx({ title = "Transcript", meta = [], turns = [] } = {}) {
+export function buildDocx({ header = [], turns = [], timestamps = false } = {}) {
   const body = [];
-  body.push(para(run(title), { style: "Title" }));
-  for (const line of meta) if (line) body.push(para(run(line), { style: "Meta" }));
-  body.push(para("", { after: 120 }));
+  header.forEach((line, i) => {
+    const last = i === header.length - 1;
+    body.push(para(run(line), { after: last ? 120 : 40, rule: last }));
+  });
+  if (header.length) body.push(para("", { after: 240 }));
 
   for (const t of turns) {
     const rtl = isRTL(t.text);
     const runs =
-      run(`[${stamp(t.start)}]`, { color: "7F7F7F", size: 18, rtl: false }) +
-      run("  ") +
-      (t.label ? run(`${t.label}:\u200E`, { bold: true, rtl }) + run(" ", { rtl }) : "") + // LRM keeps the colon beside the Latin label inside right-to-left lines
+      (timestamps ? run(`[${stamp(t.start)}]  `, { color: "7F7F7F", size: 18 }) : "") +
+      (t.label ? run(`${t.label}:\u200E `, { rtl }) : "") + // LRM keeps the colon beside the Latin label inside right-to-left lines
       run(t.text, { rtl });
-    body.push(para(runs, { rtl }));
+    body.push(para(runs, { rtl, after: 360 }));
   }
 
   const document = HEAD + `<w:document ${NS}><w:body>${body.join("")}` +
