@@ -1,0 +1,59 @@
+# Builds a self-contained copy of the site (library + models hosted by your own
+# GitHub Pages) and deploys it. In the repo go to
+#   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site and vendor the speech library
+        run: |
+          mkdir -p _site
+          cp index.html worker.js _site/
+          if [ -f coi-serviceworker.js ]; then cp coi-serviceworker.js _site/; fi
+          bash scripts/vendor.sh _site/vendor
+
+      - name: Cache model files
+        uses: actions/cache@v4
+        with:
+          path: _site/models
+          key: whisper-models-tiny-base-small-v1
+
+      - name: Download Whisper models
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet huggingface_hub
+          # If the deploy later complains about size, remove "small" below.
+          /tmp/venv/bin/python scripts/fetch_models.py --out _site/models tiny base small
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

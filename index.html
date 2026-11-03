@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private audio transcriber</title>
+<style>
+  :root {
+    --bg: #f2f5f4;
+    --surface: #ffffff;
+    --ink: #14211f;
+    --muted: #55655f;
+    --line: #cfdad7;
+    --accent: #0e6b63;
+    --accent-ink: #ffffff;
+    --good: #1d7a3c;
+    --bad: #a3302a;
+    --warn: #8a5a00;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1716;
+      --surface: #172221;
+      --ink: #e4efec;
+      --muted: #98ada8;
+      --line: #2a3a38;
+      --accent: #4cc4b6;
+      --accent-ink: #06201d;
+      --good: #6fd68f;
+      --bad: #ff8a80;
+      --warn: #f0c060;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding: 2rem 1rem 4rem;
+  }
+  main { max-width: 48rem; margin: 0 auto; }
+  h1 { font-size: 1.9rem; line-height: 1.15; margin: 0 0 .5rem; letter-spacing: -.01em; }
+  h2 { font-size: 1.05rem; margin: 0 0 .6rem; }
+  .lede { color: var(--muted); margin: 0 0 1.75rem; max-width: 62ch; }
+  [hidden] { display: none !important; }
+
+  .drop {
+    display: block; position: relative;
+    border: 2px dashed var(--line); border-radius: 12px;
+    background: var(--surface); padding: 1.8rem 1rem; text-align: center; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .drop:hover, .drop.over, .drop:focus-within { border-color: var(--accent); }
+  .drop strong { display: block; font-size: 1.05rem; }
+  .drop span { color: var(--muted); font-size: .9rem; }
+  .drop input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+  #fileInfo { margin-top: .6rem; font-weight: 600; word-break: break-all; }
+  #fileInfo small { font-weight: 400; color: var(--muted); }
+
+  .grid { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; margin: 1.25rem 0 .75rem; }
+  @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+  label.field { display: block; font-size: .9rem; font-weight: 600; margin-bottom: .3rem; }
+  select {
+    width: 100%; padding: .6rem .7rem; font: inherit; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .hint { color: var(--muted); font-size: .82rem; margin-top: .3rem; min-height: 1.2em; }
+  details { margin: .25rem 0 1.25rem; }
+  summary { cursor: pointer; font-size: .9rem; color: var(--muted); }
+  details .grid { margin-top: .75rem; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px; padding: .65rem 1.2rem;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button.small { padding: .4rem .85rem; font-size: .88rem; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .panel { margin-top: 1.5rem; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.1rem; }
+  #phase { margin: 0; font-weight: 600; }
+  #detail { margin: .15rem 0 0; color: var(--muted); font-size: .9rem; }
+  progress { width: 100%; height: .65rem; margin: .7rem 0 .2rem; accent-color: var(--accent); }
+  #live {
+    margin: .8rem 0 0; padding: .6rem .8rem; border-left: 3px solid var(--line);
+    color: var(--muted); font-size: .9rem; max-height: 7.5rem; overflow: hidden; white-space: pre-wrap;
+  }
+  #live:empty { display: none; }
+  .error { color: var(--bad); font-weight: 600; }
+
+  #checks { list-style: none; margin: 0; padding: 0; }
+  #checks li { display: grid; grid-template-columns: 1.4rem 1fr; gap: .4rem; padding: .35rem 0; border-top: 1px solid var(--line); font-size: .92rem; }
+  #checks li:first-child { border-top: 0; }
+  #checks .state { font-weight: 700; }
+  #checks .ok .state { color: var(--good); }
+  #checks .no .state { color: var(--bad); }
+  #checks .info .state { color: var(--warn); }
+  #checks small { display: block; color: var(--muted); word-break: break-all; }
+  #verdict { margin: .75rem 0 0; font-weight: 600; }
+
+  #result { margin-top: 1.5rem; }
+  audio { width: 100%; margin-bottom: .8rem; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem; }
+  .toolbar label { font-size: .88rem; color: var(--muted); display: inline-flex; gap: .35rem; align-items: center; }
+  #summary { margin: 0 0 .6rem; color: var(--muted); font-size: .9rem; }
+  #transcript {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: .5rem 1.1rem; max-height: 30rem; overflow: auto;
+  }
+  .seg { display: grid; grid-template-columns: 4.6rem 1fr; gap: .75rem; padding: .4rem 0; }
+  .seg button.t {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem;
+    color: var(--accent); background: none; border: 0; padding: .15rem 0; text-align: left; cursor: pointer;
+  }
+  .seg button.t:hover { text-decoration: underline; }
+  .seg p { margin: 0; outline-offset: 3px; }
+  .seg.now p { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+  footer { margin-top: 2.5rem; color: var(--muted); font-size: .85rem; max-width: 64ch; }
+  footer p { margin: 0 0 .6rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Private audio transcriber</h1>
+  <p class="lede">Turn recordings into text. Whisper runs inside your browser, so your audio is never uploaded anywhere. Edit the transcript here, then export it.</p>
+
+  <noscript><p class="error">This tool needs JavaScript.</p></noscript>
+
+  <label class="drop" id="drop">
+    <strong>Choose an audio or video file</strong>
+    <span>or drag it here (MP3, WAV, M4A, OGG, FLAC, MP4, WEBM)</span>
+    <input type="file" id="file" accept="audio/*,video/*">
+    <div id="fileInfo"></div>
+  </label>
+
+  <div class="grid">
+    <div>
+      <label class="field" for="lang">Language spoken</label>
+      <select id="lang">
+        <option value="auto">Detect automatically</option>
+        <option value="english">English</option>
+        <option value="french">French</option>
+        <option value="arabic">Arabic</option>
+        <option value="spanish">Spanish</option>
+        <option value="german">German</option>
+        <option value="portuguese">Portuguese</option>
+        <option value="italian">Italian</option>
+        <option value="hindi">Hindi</option>
+        <option value="urdu">Urdu</option>
+        <option value="tamil">Tamil</option>
+        <option value="chinese">Chinese</option>
+        <option value="turkish">Turkish</option>
+        <option value="russian">Russian</option>
+      </select>
+    </div>
+    <div>
+      <label class="field" for="size">Accuracy</label>
+      <select id="size">
+        <option value="tiny">Fast (tiny, about 40 MB)</option>
+        <option value="base" selected>Balanced (base, about 80 MB)</option>
+        <option value="small">Accurate (small, about 250 MB)</option>
+      </select>
+      <div class="hint" id="sizeHint"></div>
+    </div>
+  </div>
+
+  <details>
+    <summary>Advanced options</summary>
+    <div class="grid">
+      <div>
+        <label class="field" for="task">Output</label>
+        <select id="task">
+          <option value="transcribe" selected>Transcribe (same language)</option>
+          <option value="translate">Translate to English</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="device">Engine</label>
+        <select id="device">
+          <option value="auto" selected>Automatic (GPU if available)</option>
+          <option value="cpu">CPU only</option>
+          <option value="gpu">GPU only (Chrome or Edge)</option>
+        </select>
+      </div>
+    </div>
+  </details>
+
+  <div class="actions">
+    <button class="primary" id="go" disabled>Transcribe</button>
+    <button id="cancel" hidden>Cancel</button>
+    <button id="check">Check my setup</button>
+  </div>
+
+  <section class="panel" id="run" hidden aria-live="polite">
+    <p id="phase"></p>
+    <p id="detail"></p>
+    <progress id="bar" max="100"></progress>
+    <div id="live" aria-hidden="true"></div>
+  </section>
+
+  <section class="panel" id="diag" hidden>
+    <h2>Setup check</h2>
+    <ul id="checks"></ul>
+    <p id="verdict"></p>
+  </section>
+
+  <section id="result" hidden>
+    <audio id="player" controls></audio>
+    <p id="summary"></p>
+    <div class="toolbar">
+      <button class="small" id="copy">Copy text</button>
+      <button class="small" id="dlTxt">Download .txt</button>
+      <button class="small" id="dlSrt">Download .srt</button>
+      <button class="small" id="dlVtt">Download .vtt</button>
+      <label><input type="checkbox" id="withTime"> Timestamps in .txt and copy</label>
+    </div>
+    <div id="transcript" aria-label="Transcript. Text can be edited."></div>
+  </section>
+
+  <footer>
+    <p>The first run downloads the model once; after that it loads from your browser cache. Keep this tab open while it works. Long recordings are much faster on a computer with a GPU (recent Chrome or Edge).</p>
+    <p><button class="small" id="clear">Remove downloaded models</button></p>
+  </footer>
+</main>
+
+<!--
+  Optional: faster CPU mode on GitHub Pages. Download coi-serviceworker.js
+  (MIT licence) next to this file and uncomment the line below. It lets the
+  page use several CPU threads. See README.md.
+<script src="coi-serviceworker.js"></script>
+-->
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const SAMPLE_RATE = 16000;
+const state = { file: null, worker: null, segments: [], objectUrl: null, running: false, wake: null,
+                t0: 0, liveBuf: "", dl: new Map(), info: null, audioSeconds: 0 };
+
+/* ---------- small helpers ---------- */
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
+};
+const pad = (n, w = 2) => String(n).padStart(w, "0");
+function stamp(t, ms = null) {
+  t = Math.max(0, t || 0);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60);
+  const base = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  return ms ? `${base}${ms}${pad(Math.floor((t % 1) * 1000), 3)}` : base;
+}
+function duration(sec) {
+  sec = Math.round(sec);
+  if (sec < 60) return `${sec} s`;
+  const m = Math.floor(sec / 60);
+  return m < 60 ? `${m} min ${sec % 60} s` : `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+const mb = (bytes) => (bytes / 1048576).toFixed(bytes > 1.05e8 ? 0 : 1);
+
+/* ---------- settings ---------- */
+for (const id of ["lang", "size", "task", "device"]) {
+  const saved = store.get("wp_" + id);
+  if (saved && [...$(id).options].some((o) => o.value === saved)) $(id).value = saved;
+  $(id).addEventListener("change", () => { store.set("wp_" + id, $(id).value); updateHint(); });
+}
+function updateHint() {
+  const hard = ["arabic", "urdu", "hindi", "tamil", "chinese", "turkish", "russian"];
+  const el = $("sizeHint");
+  if (hard.includes($("lang").value) && $("size").value !== "small") {
+    el.textContent = "Accurate (small) is recommended for this language.";
+  } else if ($("lang").value === "auto" && $("size").value === "tiny") {
+    el.textContent = "Tiny can misdetect the language. Choose it manually if you know it.";
+  } else {
+    el.textContent = "";
+  }
+}
+updateHint();
+
+/* ---------- file selection ---------- */
+function pickFile(f) {
+  if (!f) return;
+  state.file = f;
+  $("fileInfo").innerHTML = "";
+  const name = document.createElement("span"); name.textContent = f.name;
+  const small = document.createElement("small"); small.textContent = ` (${mb(f.size)} MB)`;
+  $("fileInfo").append(name, small);
+  $("go").disabled = state.running;
+}
+$("file").addEventListener("change", (e) => pickFile(e.target.files[0]));
+const drop = $("drop");
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => pickFile(e.dataTransfer.files[0]));
+
+/* ---------- audio decoding (16 kHz mono) ---------- */
+async function decodeAudio(file) {
+  const bytes = await file.arrayBuffer();
+  let ctx;
+  try { ctx = new AudioContext({ sampleRate: SAMPLE_RATE }); } catch { ctx = new AudioContext(); }
+  let decoded;
+  try {
+    decoded = await ctx.decodeAudioData(bytes);
+  } catch {
+    throw new Error("This file could not be decoded. Try converting it to MP3 or WAV first.");
+  } finally {
+    ctx.close();
+  }
+  if (decoded.sampleRate !== SAMPLE_RATE) {
+    const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * SAMPLE_RATE), SAMPLE_RATE);
+    const src = off.createBufferSource();
+    src.buffer = decoded;
+    src.connect(off.destination);
+    src.start();
+    const rendered = await off.startRendering();
+    return rendered.getChannelData(0).slice();
+  }
+  const out = new Float32Array(decoded.length);
+  const ch = decoded.numberOfChannels;
+  for (let c = 0; c < ch; c++) {
+    const d = decoded.getChannelData(c);
+    for (let i = 0; i < d.length; i++) out[i] += d[i] / ch;
+  }
+  return out;
+}
+
+/* ---------- run state / UI ---------- */
+function setPhase(text, detail = "") { $("phase").textContent = text; $("phase").classList.remove("error"); $("detail").textContent = detail; }
+function setBar(pct) { if (pct == null) $("bar").removeAttribute("value"); else $("bar").value = pct; }
+const guard = (e) => { e.preventDefault(); e.returnValue = ""; };
+
+async function beginRun() {
+  state.running = true;
+  state.liveBuf = "";
+  state.dl.clear();
+  $("go").disabled = true;
+  $("cancel").hidden = false;
+  $("run").hidden = false; $("diag").hidden = true; $("result").hidden = true;
+  $("live").textContent = "";
+  window.addEventListener("beforeunload", guard);
+  try { state.wake = await navigator.wakeLock?.request("screen"); } catch { state.wake = null; }
+}
+function endRun() {
+  state.running = false;
+  $("go").disabled = !state.file;
+  $("cancel").hidden = true;
+  window.removeEventListener("beforeunload", guard);
+  try { state.wake?.release(); } catch { /* ignore */ }
+  state.wake = null;
+}
+
+function getWorker() {
+  if (state.worker) return state.worker;
+  let w;
+  try { w = new Worker("./worker.js", { type: "module" }); }
+  catch { throw new Error("This browser cannot run module workers. Update it, or use a recent Chrome, Edge, Firefox or Safari."); }
+  w.onmessage = ({ data }) => onWorker(data);
+  w.onerror = (e) => fail({ message: e.message || "The background worker crashed.", file: "" });
+  state.worker = w;
+  return w;
+}
+
+function onWorker(m) {
+  switch (m.type) {
+    case "status": setPhase(m.text); setBar(null); break;
+    case "download": {
+      state.dl.set(m.file, { loaded: m.loaded, total: m.total });
+      let l = 0, t = 0;
+      for (const v of state.dl.values()) { l += v.loaded; t += v.total; }
+      setPhase("Downloading the model (first run only)", `${mb(l)} of ${mb(t)} MB`);
+      setBar(t ? (l / t) * 100 : null);
+      break;
+    }
+    case "start":
+      state.info = m; state.t0 = performance.now();
+      setPhase(`Transcribing (${m.device === "gpu" ? "GPU" : "CPU"})`, `Window 0 of ${m.totalWindows}`);
+      setBar(0);
+      break;
+    case "live":
+      state.liveBuf = (state.liveBuf + m.text).slice(-600);
+      $("live").textContent = state.liveBuf;
+      break;
+    case "progress": {
+      const el = (performance.now() - state.t0) / 1000;
+      const eta = m.done < m.total ? `, about ${duration((el / m.done) * (m.total - m.done))} left` : "";
+      setPhase(`Transcribing (${state.info.device === "gpu" ? "GPU" : "CPU"})`, `Window ${m.done} of ${m.total}${eta}`);
+      setBar((m.done / m.total) * 100);
+      state.liveBuf += "\n";
+      break;
+    }
+    case "done": finish(m.chunks); break;
+    case "error": fail(m); break;
+  }
+}
+
+function explain(m) {
+  const msg = m.message || "Unknown error";
+  if (/failed to fetch|networkerror|load failed|dynamically imported/i.test(msg)) {
+    return `Could not download ${m.file ? `"${m.file}"` : "a required file"}. A network, VPN, firewall or browser extension may be blocking it. A setup check below will show which one.`;
+  }
+  if (/memory|alloc|oom|out of/i.test(msg)) {
+    return "The browser ran out of memory. Try the Fast model, close other tabs, or split the recording into shorter parts.";
+  }
+  return msg;
+}
+function fail(m) {
+  endRun();
+  state.worker?.terminate(); state.worker = null;
+  setBar(0);
+  $("phase").textContent = "Something went wrong";
+  $("phase").classList.add("error");
+  $("detail").textContent = explain(m);
+  if (/failed to fetch|networkerror|load failed|dynamically imported/i.test(m.message || "")) runChecks();
+}
+
+async function start() {
+  if (!state.file || state.running) return;
+  await beginRun();
+  try {
+    setPhase("Reading audio", "Decoding the file in your browser");
+    setBar(null);
+    const audio = await decodeAudio(state.file);
+    state.audioSeconds = audio.length / SAMPLE_RATE;
+    if (state.audioSeconds < 0.5) throw new Error("The file has no audible content.");
+    const w = getWorker();
+    w.postMessage({
+      type: "run", audio,
+      size: $("size").value, device: $("device").value,
+      language: $("lang").value, task: $("task").value,
+    }, [audio.buffer]);
+    setPhase("Preparing", `Audio length ${stamp(state.audioSeconds)}`);
+  } catch (err) {
+    fail({ message: err.message || String(err) });
+  }
+}
+$("go").addEventListener("click", start);
+$("cancel").addEventListener("click", () => {
+  state.worker?.terminate(); state.worker = null;
+  endRun(); setPhase("Cancelled", "Nothing was saved. Start again whenever you like."); setBar(0);
+});
+
+/* ---------- results ---------- */
+function finish(chunks) {
+  endRun();
+  state.segments = chunks;
+  const took = (performance.now() - state.t0) / 1000;
+  setPhase("Done", `Finished in ${duration(took)}`);
+  setBar(100);
+  document.title = "Done: Private audio transcriber";
+
+  if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+  state.objectUrl = URL.createObjectURL(state.file);
+  $("player").src = state.objectUrl;
+
+  $("summary").textContent = `${chunks.length} segments, ${stamp(state.audioSeconds)} of audio, transcribed on the ${state.info?.device === "gpu" ? "GPU" : "CPU"}. Click a time to jump there. Click any text to correct it.`;
+  const box = $("transcript");
+  box.replaceChildren();
+  chunks.forEach((seg, i) => {
+    const row = document.createElement("div"); row.className = "seg"; row.dataset.i = i;
+    const t = document.createElement("button"); t.className = "t"; t.textContent = stamp(seg.start);
+    t.addEventListener("click", () => { $("player").currentTime = seg.start; $("player").play(); });
+    const p = document.createElement("p");
+    try { p.contentEditable = "plaintext-only"; } catch { p.contentEditable = "true"; }
+    p.dir = "auto"; p.textContent = seg.text;
+    p.addEventListener("input", () => { state.segments[i].text = p.textContent.trim(); });
+    row.append(t, p); box.append(row);
+  });
+  $("result").hidden = false;
+}
+$("player").addEventListener("timeupdate", () => {
+  const t = $("player").currentTime;
+  const rows = $("transcript").children;
+  for (let i = 0; i < rows.length; i++) {
+    const s = state.segments[i];
+    rows[i].classList.toggle("now", !!s && t >= s.start && t < s.end);
+  }
+});
+
+function download(name, text, type = "text/plain") {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: type + ";charset=utf-8" }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const base = () => (state.file ? state.file.name.replace(/\.[^.]+$/, "") : "transcript");
+const plain = () => state.segments.map((s) => ($("withTime").checked ? `[${stamp(s.start)}] ` : "") + s.text).join("\n");
+const srt = () => state.segments.map((s, i) => `${i + 1}\n${stamp(s.start, ",")} --> ${stamp(s.end, ",")}\n${s.text}\n`).join("\n");
+const vtt = () => "WEBVTT\n\n" + state.segments.map((s) => `${stamp(s.start, ".")} --> ${stamp(s.end, ".")}\n${s.text}\n`).join("\n");
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(plain()); setPhase("Done", "Copied to the clipboard."); }
+  catch { setPhase("Done", "Copy was blocked by the browser. Use Download .txt instead."); }
+});
+$("dlTxt").addEventListener("click", () => download(base() + ".txt", plain()));
+$("dlSrt").addEventListener("click", () => download(base() + ".srt", srt(), "application/x-subrip"));
+$("dlVtt").addEventListener("click", () => download(base() + ".vtt", vtt(), "text/vtt"));
+
+/* ---------- setup check ---------- */
+async function probe(url) {
+  const ctrl = new AbortController(), t0 = performance.now();
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    const ms = Math.round(performance.now() - t0);
+    ctrl.abort(); // headers are enough; skip the body
+    return { ok: res.ok, detail: `HTTP ${res.status}, ${ms} ms` };
+  } catch (e) {
+    return { ok: false, detail: e?.message || String(e) };
+  }
+}
+function addCheck(kind, title, detail) {
+  const li = document.createElement("li"); li.className = kind;
+  const s = document.createElement("span"); s.className = "state"; s.textContent = kind === "ok" ? "✓" : kind === "no" ? "✕" : "–";
+  const d = document.createElement("div");
+  d.append(title);
+  const sm = document.createElement("small"); sm.textContent = detail; d.append(sm);
+  li.append(s, d); $("checks").append(li);
+}
+async function runChecks() {
+  $("diag").hidden = false; $("checks").replaceChildren(); $("verdict").textContent = "Checking...";
+  const size = $("size").value, TF = "3.5.1";
+  const here = (p) => new URL(p, location.href).href;
+  const hf = `https://huggingface.co/Xenova/whisper-${size}/resolve/main/`;
+  const file = "onnx/encoder_model_quantized.onnx";
+
+  const [libLocal, libCdn, modLocal, hfCfg, hfFile] = await Promise.all([
+    probe(here("./vendor/transformers.web.min.js")),
+    probe(`https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF}/dist/transformers.web.min.js`),
+    probe(here(`./models/Xenova/whisper-${size}/${file}`)),
+    probe(hf + "config.json"),
+    probe(hf + file),
+  ]);
+
+  addCheck(libLocal.ok ? "ok" : "info", "Speech library on this site", libLocal.ok ? libLocal.detail : "Not included (the CDN is used instead)");
+  addCheck(libCdn.ok ? "ok" : (libLocal.ok ? "info" : "no"), "Speech library on jsDelivr CDN", libCdn.detail);
+  addCheck(modLocal.ok ? "ok" : "info", `${size} model on this site`, modLocal.ok ? modLocal.detail : "Not included (Hugging Face is used instead)");
+  addCheck(hfCfg.ok ? "ok" : (modLocal.ok ? "info" : "no"), "Hugging Face: model settings (huggingface.co)", hfCfg.detail);
+  addCheck(hfFile.ok ? "ok" : (modLocal.ok ? "info" : "no"), "Hugging Face: model file (storage host)", hfFile.detail);
+
+  const gpu = await (async () => { try { return !!(await navigator.gpu?.requestAdapter()); } catch { return false; } })();
+  addCheck(gpu ? "ok" : "info", "GPU acceleration (WebGPU)", gpu ? "Available" : "Not available; CPU mode will be used");
+  addCheck(crossOriginIsolated ? "ok" : "info", "Multi-threaded CPU", crossOriginIsolated ? "Enabled" : "Single thread (normal on plain GitHub Pages)");
+  addCheck("info", "Device", `${navigator.hardwareConcurrency || "?"} CPU cores, ${navigator.deviceMemory ? "about " + navigator.deviceMemory + " GB memory" : "memory not reported"}`);
+
+  const libOk = libLocal.ok || libCdn.ok, modelOk = modLocal.ok || (hfCfg.ok && hfFile.ok);
+  $("verdict").textContent = libOk && modelOk
+    ? "Everything needed is reachable. If transcription still fails, send the error text shown above."
+    : !libOk ? "The speech library cannot be loaded from this site or from cdn.jsdelivr.net. Host it on your own site with the GitHub Actions workflow in the README."
+    : "Model files cannot be reached. Your network is probably blocking huggingface.co or its storage host. Host the models on your own site with the GitHub Actions workflow in the README.";
+}
+$("check").addEventListener("click", runChecks);
+
+/* ---------- housekeeping ---------- */
+$("clear").addEventListener("click", async () => {
+  try {
+    const ok = await caches.delete("transformers-cache");
+    $("run").hidden = false;
+    setPhase(ok ? "Downloaded models removed" : "No downloaded models were found", "");
+    setBar(0);
+  } catch { $("run").hidden = false; setPhase("Could not clear the cache in this browser", ""); }
+});
+</script>
+</body>
+</html>
