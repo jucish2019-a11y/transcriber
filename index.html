@@ -240,6 +240,7 @@
 <script type="module">
 const $ = (id) => document.getElementById(id);
 const SAMPLE_RATE = 16000;
+const APP_VERSION = "3"; // bump when files change so browsers fetch fresh copies
 const state = { file: null, worker: null, segments: [], objectUrl: null, running: false, wake: null,
                 t0: 0, liveBuf: "", dl: new Map(), info: null, audioSeconds: 0 };
 
@@ -357,7 +358,7 @@ function endRun() {
 function getWorker() {
   if (state.worker) return state.worker;
   let w;
-  try { w = new Worker("./worker.js", { type: "module" }); }
+  try { w = new Worker(`./worker.js?v=${APP_VERSION}`, { type: "module" }); }
   catch { throw new Error("This browser cannot run module workers. Update it, or use a recent Chrome, Edge, Firefox or Safari."); }
   w.onmessage = ({ data }) => onWorker(data);
   w.onerror = (e) => fail({ message: e.message || "The background worker crashed.", file: "" });
