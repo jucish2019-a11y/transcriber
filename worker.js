@@ -32,11 +32,11 @@ const post = (msg) => self.postMessage(msg);
 async function loadLibrary() {
   if (T) return T;
   try {
-    T = await import("./vendor/transformers.web.min.js");
+    T = await import("./vendor/transformers.min.js");
     libSource = "this site";
     wasmEnv().wasmPaths = new URL("./vendor/", self.location.href).href;
   } catch (localErr) {
-    T = await import(/* @vite-ignore */ CDN + "transformers.web.min.js");
+    T = await import(/* @vite-ignore */ CDN + "transformers.min.js");
     libSource = "cdn.jsdelivr.net";
     wasmEnv().wasmPaths = CDN;
   }

@@ -527,8 +527,8 @@ async function runChecks() {
   const file = "onnx/encoder_model_quantized.onnx";
 
   const [libLocal, libCdn, modLocal, hfCfg, hfFile] = await Promise.all([
-    probe(here("./vendor/transformers.web.min.js")),
-    probe(`https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF}/dist/transformers.web.min.js`),
+    probe(here("./vendor/transformers.min.js")),
+    probe(`https://cdn.jsdelivr.net/npm/@huggingface/transformers@${TF}/dist/transformers.min.js`),
     probe(here(`./models/Xenova/whisper-${size}/${file}`)),
     probe(hf + "config.json"),
     probe(hf + file),
