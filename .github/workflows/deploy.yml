@@ -26,7 +26,7 @@ jobs:
       - name: Assemble site and vendor the speech library
         run: |
           mkdir -p _site
-          cp index.html worker.js _site/
+          cp index.html worker.js textutils.js docx.js diarize.js _site/
           if [ -f coi-serviceworker.js ]; then cp coi-serviceworker.js _site/; fi
           bash scripts/vendor.sh _site/vendor
 
